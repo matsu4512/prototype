@@ -68,6 +68,8 @@ import flash.filters.GlowFilter;
 import flash.geom.Matrix;
 import flash.geom.Rectangle;
 
+import flashx.textLayout.elements.GlobalSettings;
+
 class World extends Sprite
 {
 	public var rect_x:Number;
@@ -77,6 +79,8 @@ class World extends Sprite
 	private var screen_height:Number;
 	private var lane_num:uint;
 	private var notes:Vector.<Note>;
+	private var judge_line:JudgeLine;
+	private var particles:Vector.<Particle>;
 	
 	public function World(rect_x:Number, rect_y:Number, rect_width:Number, screen_width:Number, screen_height:Number, lane_num:uint = 7)
 	{
@@ -88,6 +92,13 @@ class World extends Sprite
 		this.lane_num = lane_num;
 		this.notes = new Vector.<Note>();
 		this.draw();
+		
+		this.judge_line = new JudgeLine(screen_width, 1);
+		this.judge_line.y = 180;
+		this.judge_line.x = -screen_width/2;
+		this.addChild(this.judge_line);
+		
+		this.particles = new Vector.<Particle>();
 	}
 	
 	public function draw():void
@@ -142,6 +153,24 @@ class World extends Sprite
 		}
 	}
 	
+	public function explode(n:uint, color:uint, x:Number, y:Number):void
+	{
+		for (var i:uint = 0; i < n; i++) {
+			var t:Number = 2 * Math.PI * Math.random();
+			var v:Number = Math.random() * 3 + 2;
+			var p:Particle = new Particle(color, Math.random() * 3 + 1, Math.cos(t) * v, Math.sin(t) * v);
+			this.particles.push(p);
+			this.addChild(p);
+			p.x = x;
+			p.y = y;
+		}
+	}
+	
+	public function explode2():void
+	{
+		
+	}
+	
 	public function addNote(note:Note):void
 	{
 		this.notes.push(note);
@@ -173,8 +202,25 @@ class World extends Sprite
 		var i:uint = this.notes.length;
 		while (i--) {
 			this.notes[i]._y += 0.005;
-			if (this.notes[i]._y > 2.0) {
+			if (this.notes[i]._y > 2) {
 				this.notes.splice(i, 1);
+			}
+			
+			if (this.notes[i]._y < 0.98 && this.notes[i]._y + 0.005 >= 0.98) {
+				this.notes[i].visible = false;
+				explode(20, 0xFF0000, this.notes[i].x + this.notes[i].width/2, this.notes[i].y);
+			}
+		}
+		
+		i = this.particles.length;
+		while (i--) {
+			var p:Particle = this.particles[i];
+			p.x += p.vx;
+			p.y += p.vy;
+			p.alpha -= p.va;
+			if (p.alpha < 0) {
+				this.particles.splice(i, 1);
+				this.removeChild(p);
 			}
 		}
 		
@@ -213,5 +259,36 @@ class Note extends Sprite
 			this.filters = [new GlowFilter(0xFF00, 1.0, 8.0, 8.0, 2, 1)];
 			this.graphics.drawCircle(this.x + this.w/ 2, this.y + this.h/ 2, this.h);
 		}
+	}
+}
+
+class JudgeLine extends Sprite
+{
+	public function JudgeLine(w:Number, h:Number)
+	{
+		this.graphics.clear();
+		this.graphics.lineStyle(h, 0xFFFFFF);
+		this.graphics.moveTo(0, 0);
+		this.graphics.lineTo(w, 0);
+		this.filters = [new GlowFilter(0xFFFF00, 1.0, 8, 8, 2, 1)];
+	}
+}
+
+class Particle extends Sprite
+{
+	public var vx:Number;
+	public var vy:Number;
+	public var va:Number;
+	
+	public function Particle(color:uint, size:Number, vx:Number, vy:Number)
+	{
+		this.vx = vx;
+		this.vy = vy;
+		this.va = Math.random()*0.05 + 0.05;
+		
+		this.graphics.beginFill(0xFFFFFF);
+		this.graphics.drawCircle(0, 0, size);
+		this.graphics.endFill();
+		this.filters = [new GlowFilter(color, 1.0, 32.0, 32.0, 4, 2)];
 	}
 }
