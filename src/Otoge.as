@@ -2,6 +2,7 @@ package
 {
 	import flash.display.Sprite;
 	import flash.events.Event;
+	import flash.filters.GlowFilter;
 	import flash.utils.setInterval;
 	
 	[SWF(width="640", height="420", backgroundColor="0", frameRate="60")]
@@ -11,46 +12,80 @@ package
 		
 		public function Otoge()
 		{
-			this.lane = new World(0, 0, 64, 42, 640, 420);
+			this.lane = new World(0, 0, 160, 640, 420, 7);
 			addChild(this.lane);
 			lane.x = stage.stageWidth/2;
 			lane.y = stage.stageHeight/2;
 			
-			setInterval(function():void{
-				lane.addNote(new Note(Math.random(), 0, 0, 0));
-			}, 500);
+			lane.rect_y = -210;
+			
+			var w:Number = 640/7;
+			var h:Number = 5;
+			
+			lane.addNote(new Note(0, w, h, 0));
+			lane.addNote(new Note(0, w, h, 6));
+			lane.addNote(new Note(-0.1, w, h, 1));
+			lane.addNote(new Note(-0.2, w, h, 2));
+			lane.addNote(new Note(-0.3, w, h, 3));
+			lane.addNote(new Note(-0.4, w, h, 4));
+			lane.addNote(new Note(-0.5, w, h, 5));
+			lane.addNote(new Note(-0.6, w, h, 6));
+			
+			lane.addChargeNote(new Note(-0.7, w, h, 3), new Note(-1.0, w, h, 3));
+			
+			h = 10;
+			lane.addChainNote(Vector.<Note>([
+				new Note(-1.20, w, h, 0),
+				new Note(-1.22, w, h, 1),
+				new Note(-1.24, w, h, 2),
+				new Note(-1.26, w, h, 3),
+				new Note(-1.28, w, h, 4),
+				new Note(-1.30, w, h, 3),
+				new Note(-1.32, w, h, 2),
+				new Note(-1.34, w, h, 3),
+				new Note(-1.36, w, h, 4),
+				new Note(-1.38, w, h, 5),
+				new Note(-1.40, w, h, 6),
+				new Note(-1.42, w, h, 5),
+				new Note(-1.44, w, h, 4),
+				new Note(-1.46, w, h, 3),
+				new Note(-1.48, w, h, 2),
+				new Note(-1.50, w, h, 1)
+			]));
 			
 			addEventListener(Event.ENTER_FRAME, onEnterFrame);
 		}
 		
 		private function onEnterFrame(e:Event):void
 		{
-//			lane.rect_x = mouseX - 480;
-//			lane.rect_y = mouseY - 320;
 			lane.update();
 		}
 	}
 }
+import flash.display.GradientType;
 import flash.display.Sprite;
+import flash.filters.GlowFilter;
+import flash.geom.Matrix;
+import flash.geom.Rectangle;
 
 class World extends Sprite
 {
 	public var rect_x:Number;
 	public var rect_y:Number;
 	private var rect_width:Number;
-	private var rect_height:Number;
 	private var screen_width:Number;
 	private var screen_height:Number;
+	private var lane_num:uint;
 	private var notes:Vector.<Note>;
 	
-	public function World(rect_x:Number, rect_y:Number, rect_width:Number, rect_height:Number, screen_width:Number, screen_height:Number)
+	public function World(rect_x:Number, rect_y:Number, rect_width:Number, screen_width:Number, screen_height:Number, lane_num:uint = 7)
 	{
 		this.rect_x = rect_x;
 		this.rect_y = rect_y;
 		this.rect_width = rect_width;
-		this.rect_height = rect_height;
 		this.screen_width = screen_width;
 		this.screen_height = screen_height;
+		this.lane_num = lane_num;
 		this.notes = new Vector.<Note>();
 		this.draw();
 	}
@@ -59,57 +94,124 @@ class World extends Sprite
 	{
 		this.graphics.clear();
 		this.graphics.lineStyle(1, 0xFFFFFF);
-		this.graphics.drawRect(this.rect_x - this.rect_width / 2, this.rect_y - this.rect_height / 2, this.rect_width, this.rect_height);
-		this.graphics.moveTo(-this.screen_width / 2, -this.screen_height / 2);
-		this.graphics.lineTo(this.rect_x - this.rect_width / 2, this.rect_y - this.rect_height / 2);
-		this.graphics.moveTo(this.screen_width / 2, -this.screen_height / 2);
-		this.graphics.lineTo(this.rect_x + this.rect_width / 2, this.rect_y - this.rect_height / 2);
+		var m:Matrix = new Matrix();
+		m.createGradientBox(this.screen_width, this.screen_height, Math.PI/2, -this.screen_width/2, -this.screen_height/2);
+		this.graphics.lineGradientStyle(GradientType.LINEAR, [0xFFFFFF, 0xFFFFFF, 0xFFFFFF], [0, 1, 1], [0, 100, 255], m);
 		this.graphics.moveTo(-this.screen_width / 2, this.screen_height / 2);
-		this.graphics.lineTo(this.rect_x - this.rect_width / 2, this.rect_y + this.rect_height / 2);
+		this.graphics.lineTo(this.rect_x - this.rect_width / 2, this.rect_y);
 		this.graphics.moveTo(this.screen_width / 2, this.screen_height / 2);
-		this.graphics.lineTo(this.rect_x + this.rect_width / 2, this.rect_y + this.rect_height / 2);
+		this.graphics.lineTo(this.rect_x + this.rect_width / 2, this.rect_y);
 		
 		for (var i:uint = 0; i < this.notes.length; i++) {
 			this.drawNote(notes[i]);
 		}
 	}
 	
+	private function calcRect(note:Note):Rectangle
+	{
+		var x1:Number = this.rect_x - this.rect_width / 2 + ((note.lane + 0.5) / this.lane_num) * this.rect_width;
+		var x2:Number = this.screen_width * ((note.lane + 0.5) / this.lane_num) - this.screen_width / 2;
+		var y1:Number = (this.screen_height / 2 - this.rect_y);
+		var y2:Number = (this.screen_height / 2 - this.rect_y) * note._y * note._y * note._y;
+		var w:Number = (this.screen_width - this.rect_width) / this.lane_num * y2 / y1 + this.rect_width / this.lane_num;
+		var h:Number = 5 * y2 / y1;
+		note.scaleX = note.scaleY = w / note.w;
+		return new Rectangle(x1 + (x2 - x1) * y2 / y1 - w / 2, this.rect_y + y2 - h / 2, w, h);
+	}
+	
 	private function drawNote(note:Note):void
 	{
-		var x1:Number = this.rect_x - this.rect_width / 2 + note.x * this.rect_width;
-		var x2:Number = this.screen_width * note.x - this.screen_width / 2;
-		var y1:Number = (this.screen_height / 2 - (this.rect_y + this.rect_height / 2));
-		var y2:Number = (this.screen_height / 2 - (this.rect_y + this.rect_height / 2)) * note.y * note.y * note.y;
-		this.graphics.drawCircle(x1 + (x2 - x1) * y2 / y1, (this.rect_y + this.rect_height / 2) + y2, 5);
+		var rect:Rectangle = this.calcRect(note);
+		note.x = rect.x;
+		note.y = rect.y;
+		if (note.type == 0) {
+		} else if (note.type == 1) {
+			if (note.next != null) { 
+				var rect2:Rectangle = this.calcRect(note.next);
+				this.graphics.moveTo(rect.x, rect.y);
+				this.graphics.lineTo(rect2.x, rect2.bottom);
+				this.graphics.moveTo(rect.right, rect.y);
+				this.graphics.lineTo(rect2.right, rect2.bottom);
+			}			
+		} else if (note.type == 2) {
+			if (note.next != null) { 
+				var rect2:Rectangle = this.calcRect(note.next);
+				this.graphics.moveTo(rect.x + rect.width / 2, rect.y + rect.height / 2);
+				this.graphics.lineTo(rect2.x + rect2.width / 2, rect2.y + rect2.height / 2);
+			}
+		}
 	}
 	
 	public function addNote(note:Note):void
 	{
 		this.notes.push(note);
+		this.addChild(note);
+		note.draw();
+	}
+	
+	public function addChargeNote(note1:Note, note2:Note):void
+	{
+		note1.type = note2.type = 1;
+		note1.next = note2;
+		this.addNote(note1);
+		this.addNote(note2);
+	}
+	
+	public function addChainNote(notes:Vector.<Note>):void
+	{
+		for (var i:uint = 0; i < notes.length; i++) {
+			notes[i].type = 2;
+			if (i < notes.length - 1) {
+				notes[i].next = notes[i+1];
+			}
+			this.addNote(notes[i]);
+		}
 	}
 	
 	public function update():void
 	{
-		for (var i:uint = 0; i < this.notes.length; i++) {
-			this.notes[i].y += 0.005;
+		var i:uint = this.notes.length;
+		while (i--) {
+			this.notes[i]._y += 0.005;
+			if (this.notes[i]._y > 2.0) {
+				this.notes.splice(i, 1);
+			}
 		}
 		
 		this.draw();
 	}
 }
 
-class Note
+class Note extends Sprite
 {
-	public var x:Number;
-	public var y:Number;
-	public var width:Number;
-	public var height:Number;
+	public var _y:Number;
+	public var w:Number;
+	public var h:Number;
+	public var lane:uint;
+	public var type:uint; //0:normal, 1:charge, 2:chain
+	public var next:Note;
 	
-	public function Note(x:Number, y:Number, width:Number, height:Number)
+	public function Note(y:Number, width:Number, height:Number, lane:uint)
 	{
-		this.x = x;
-		this.y = y;
-		this.width = width;
-		this.height = height;
+		this._y = y;
+		this.w= width;
+		this.h= height;
+		this.lane = lane;
+	}
+	
+	public function draw():void
+	{
+		this.graphics.clear();
+		this.graphics.lineStyle(1, 0xFFFFFF);
+		if (this.type == 0) {
+			this.filters = [new GlowFilter(0xFF0000, 1.0, 8.0, 8.0, 2, 1)];
+			this.graphics.drawRect(this.x, this.y, this.w, this.h);
+		} else if (this.type == 1) {
+			this.filters = [new GlowFilter(0xFF, 1.0, 8.0, 8.0, 2, 1)];
+			this.graphics.drawRect(this.x, this.y, this.w, this.h);
+		} else if (this.type == 2) {
+			this.filters = [new GlowFilter(0xFF00, 1.0, 8.0, 8.0, 2, 1)];
+			this.graphics.drawCircle(this.x + this.w/ 2, this.y + this.h/ 2, this.h);
+		}
 	}
 }
